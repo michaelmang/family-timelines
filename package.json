@@ -1,5 +1,5 @@
 {
-  "name": "family-memories",
+  "name": "family-timelines",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -7,11 +7,15 @@
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
     "react": "^17.0.1",
+    "react-chrono": "^1.8.3",
     "react-dom": "^17.0.1",
+    "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.1",
-    "web-vitals": "^0.2.4"
+    "web-vitals": "^0.2.4",
+    "windups": "^1.1.2"
   },
   "scripts": {
+    "prestart": "npx tailwindcss-cli@latest build ./src/tailwind.css -o ./src/index.css",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
