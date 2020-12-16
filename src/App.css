@@ -22,8 +22,22 @@
   animation: fade-in 0.5s ease-out;
 }
 
+.progress-meter {
+  animation: roundtime calc(var(--duration) * 250ms) linear forwards;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
+  }
+}
+
+@keyframes roundtime {
+  from {
+    width: 5%;
+  }
+
+  to {
+    width: 100%;
   }
 }
