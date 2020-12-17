@@ -1,7 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Shadows+Into+Light&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 button:hover {
   @apply animate-pulse;
+}
+
+* {
+  letter-spacing: 0.5px;
+  font-family: 'Rubik', sans-serif;
+}
+
+.cursive {
+  font-family: 'Shadows Into Light', cursive;
 }

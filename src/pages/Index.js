@@ -10,8 +10,8 @@ import { ReactComponent as IdeasFlowSVG } from '../illustrations/ideas_flow.svg'
 import { ReactComponent as WebsiteSVG } from '../illustrations/website.svg';
 import { ReactComponent as WishlistSVG } from '../illustrations/wishlist.svg';
 
-export default function Index({ isAuthenticated }) {
-  const { loginWithRedirect } = useAuth0();
+export default function Index() {
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
 
   function handleLogin() {
     if (isAuthenticated) {
