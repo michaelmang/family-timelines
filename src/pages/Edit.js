@@ -1,16 +1,22 @@
-import { useQuery } from "@apollo/client";
+import { useMutation } from "@apollo/client";
 import { useAuth0 } from "@auth0/auth0-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDown, faChevronDown, faChevronUp, faPencilAlt, faPlus, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faPlus, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { useSearchFieldState as useInputState } from "@react-stately/searchfield";
 import { useToggleState } from "@react-stately/toggle";
 import { useEffect, useState } from "react";
 import getUuid from "uuid-by-string";
-import { WindupChildren } from "windups";
 
-import { GET_FAMILY_BY_USER_ID } from "../gql.js";
+import { INSERT_FAMILY_MEMBER, UPDATE_FAMILY } from "../gql.js";
+import EditButton from "../components/EditButton.js";
 import Hero from "../components/Hero.js";
+import Input from "../components/Input.js";
 import Loader from "../components/Loader.js";
+import SubmitButton from "../components/SubmitButton.js";
+import TextArea from "../components/TextArea.js";
+import UserMenu from "../components/UserMenu.js";
+import diff from "../utils/diff.js";
+import useFetchFamily from "../hooks/useFetchFamily.js";
 
 const printFamilyMember = (family_members) => (
   { given_name },
@@ -22,22 +28,18 @@ const printFamilyMember = (family_members) => (
 };
 
 export default function Edit() {
-  const { logout, user } = useAuth0();
+  const { user } = useAuth0();
 
   const user_id = getUuid(user.email, 3);
-  const { loading, data } = useQuery(GET_FAMILY_BY_USER_ID, {
-    variables: { user_id },
-  });
+  
+  const { loading, data, refetch } = useFetchFamily({ user_id });
+  const [insertFamilyMember] = useMutation(INSERT_FAMILY_MEMBER);
+  const [updateFamily] = useMutation(UPDATE_FAMILY);
 
-  const {
-    isSelected: isNavExpanded,
-    toggle: updateNavExpanded,
-  } = useToggleState(false);
   const {
     isSelected: isEditingInfo,
     toggle: updateEditingInfo,
   } = useToggleState(false);
-  
   const { value: typedFamilyName, setValue: setTypedFamilyName } = useInputState("");
   const { value: typedFamilyMember, setValue: setTypedFamilyMember } = useInputState("");
   const { value: typedShortBio, setValue: setTypedShortBio } = useInputState("");
@@ -53,11 +55,13 @@ export default function Edit() {
   }, [data, setTypedFamilyName, setFamilyMembers, setTypedShortBio]);
 
   if (loading) {
-    return <Loader />;
-  }
-
-  function handleLogout() {
-    logout({ returnTo: window.location.origin });
+    return (
+      <Loader>
+        <div className="flex flex-col bg-white">
+          <Hero className="flex-col py-8 min-h-screen"></Hero>
+        </div>
+      </Loader>
+    );
   }
 
   function updateTypedFamilyName(e) {
@@ -79,7 +83,7 @@ export default function Edit() {
 
   const family = data.families[0];
   
-  const { family_members, family_name, short_bio } = family;
+  const { id: family_id, family_members, family_name, short_bio } = family;
 
   function resetEditForm() {
     updateEditingInfo();
@@ -89,138 +93,148 @@ export default function Edit() {
     setTypedShortBio(short_bio);
   }
 
+  function insertNewFamilyMembers() {
+    const newFamilyMembers = diff(new Set(family_members), new Set(familyMembers));
+    for (const newFamilyMember of newFamilyMembers) {
+      const { given_name } = newFamilyMember;
+
+      insertFamilyMember({
+        variables: {
+          id: getUuid(given_name, 3),
+          family_id,
+          given_name,
+        },
+      });
+    }
+  }
+
   function updateFamilyInfo(e) {
     e.preventDefault();
-    alert('submitted');
+    
+    insertNewFamilyMembers();
+    updateFamily({
+      variables: {
+        family_name: typedFamilyName,
+        user_id,
+        short_bio: typedShortBio,
+        user_email: user.email,
+      },
+    });
+
+    refetch();
+    
     resetEditForm();
   }
 
   return (
     <div className="flex flex-col bg-white">
+      <div className="flex justify-center items-center fixed w-full p-4 bg-white text-pink-500 font-bold text-lg">
+        You are in Edit Mode. All saved changes will be published automatically.
+      </div>
       <Hero className="flex-col py-8 min-h-screen">
-        <div className="flex w-full justify-start px-6">
-          <div className="flex flex-col text-white">
-            <div
-              className="text-white text-base cursor-pointer"
-              onClick={updateNavExpanded}
-            >
-              {isNavExpanded && (
-                <FontAwesomeIcon className="mr-2" icon={faChevronUp} />
-              )}
-              {!isNavExpanded && (
-                <FontAwesomeIcon className="mr-2" icon={faChevronDown} />
-              )}
-              Hey, {`${family_name}s`} 👋
-            </div>
-            {isNavExpanded && (
-              <WindupChildren>
-                <button
-                  onClick={handleLogout}
-                  className="w-max text-pink-500 rounded font-bold text-xs lg:text-sm text-left ml-6 mt-3 p-0"
-                >
-                  Log Out
-                </button>
-              </WindupChildren>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col h-full justify-end px-6 lg:px-10">
-          <form onSubmit={updateFamilyInfo}>
-            {!isEditingInfo && (
-              <button className="w-0">
-                <FontAwesomeIcon className="cursor-pointer text-white" icon={faPencilAlt} onClick={updateEditingInfo} /> 
-              </button>
-            )}
-            {isEditingInfo && (
-              <button className="w-0">
-                <FontAwesomeIcon className="cursor-pointer text-white" icon={faTimes} onClick={resetEditForm} /> 
-              </button>
-            )}
-            {!isEditingInfo && (
-              <div className="text-white font-bold text-3xl my-2">
-                The {`${family_name}s`}
-              </div>
-            )}
-            {isEditingInfo && (
-              <div className="text-white font-bold text-3xl my-2">
-                Update Your Family Info
-              </div>
-            )}
-            {isEditingInfo && (
-              <Input
-                autoFocus
-                label="Family Name (e.g. The Clarksons)"
-                onChange={updateTypedFamilyName}
-                required
-                value={typedFamilyName}
-              />
-            )}
-            {!isEditingInfo && (
-              <div className="text-white font-light text-lg">
-                {family_members.map(printFamilyMember(family_members))}
-              </div>
-            )}
-            {isEditingInfo && (
-              <div className="flex flex-col text-white text-base font-bold my-2">
-                <div>Family Members (e.g. Jane Isabella)</div>
-                <ul className="pl-4 font-light">
-                  {familyMembers.map(({ given_name }) => (
-                    <li key={given_name}>{given_name}</li>
-                  ))}
-                  <li className="flex items-center">
-                    <FontAwesomeIcon className="mr-2 -mt-1" icon={faPlus} onClick={updateFamilyMembers} />
-                    <Input
-                      onChange={updateTypedFamilyMember}
-                      value={typedFamilyMember}
-                    />
-                  </li>
-                </ul>
-              </div>
-            )}
-            {!isEditingInfo && <div className="text-white font-light text-lg">{short_bio}</div>}
-            {isEditingInfo && (
-              <TextArea
-                label="Short Bio (e.g. We got married in...)"
-                onChange={updateTypedShortBio}
-                value={typedShortBio}
-              />
-            )}
-            {!isEditingInfo && (
-              <FontAwesomeIcon className="text-white mt-8 animate-bounce" icon={faArrowDown} />
-            )}
-            {isEditingInfo && (
-              <button className="bg-pink-500 rounded text-white px-4 py-2 font-bold w-max" type="submit">
-                Save Changes
-              </button>
-            )}
-          </form>
-        </div>
+        <UserMenu name={family_name} />
+        <FamilyInfo
+          {...family}
+          familyMembers={familyMembers}
+          isEditingInfo={isEditingInfo}
+          resetEditForm={resetEditForm}
+          typedFamilyMember={typedFamilyMember}
+          typedFamilyName={typedFamilyName}
+          typedShortBio={typedShortBio}
+          updateEditingInfo={updateEditingInfo}
+          updateFamilyInfo={updateFamilyInfo}
+          updateFamilyMembers={updateFamilyMembers}
+          updateTypedFamilyMember={updateTypedFamilyMember}
+          updateTypedFamilyName={updateTypedFamilyName}
+          updateTypedShortBio={updateTypedShortBio}
+        >
+
+        </FamilyInfo>
       </Hero>
     </div>
   );
 }
 
-function Input({ label, ...rest }) {
+function FamilyInfo({
+  family_name,
+  family_members,
+  familyMembers,
+  isEditingInfo,
+  resetEditForm,
+  short_bio,
+  typedFamilyMember,
+  typedFamilyName,
+  typedShortBio,
+  updateEditingInfo,
+  updateFamilyInfo,
+  updateFamilyMembers,
+  updateTypedFamilyMember,
+  updateTypedFamilyName,
+  updateTypedShortBio,
+}) {
   return (
-    <label className="flex flex-col text-white text-base font-bold my-2">
-      {label}
-      <input
-        className="cursor-pointer rounded border-solid px-2 py-1 border-2 border-white text-white font-normal text-base mb-2 w-max bg-transparent"
-        type="text"
-        {...rest}
-      />
-    </label>
-  );
-}
-
-function TextArea({ label, ...rest }) {
-  return (
-    <label className="flex flex-col text-white text-base font-bold my-2">
-      {label}
-      <textarea
-        className="cursor-pointer rounded border-solid px-2 py-1 border-2 border-white text-white font-normal text-base mb-2 w-1/2 bg-transparent"
-        {...rest}
-      />
-    </label>
+    <div className="flex flex-col h-full justify-end px-6 lg:px-10">
+      <form onSubmit={updateFamilyInfo}>
+        {!isEditingInfo && <EditButton text="Update Family Info" onClick={updateEditingInfo} />}
+        {isEditingInfo && (
+          <button className="w-0">
+            <FontAwesomeIcon className="cursor-pointer text-white" icon={faTimes} onClick={resetEditForm} /> 
+          </button>
+        )}
+        {!isEditingInfo && (
+          <div className="text-white font-bold text-3xl my-2">
+            {family_name}
+          </div>
+        )}
+        {isEditingInfo && (
+          <div className="text-white font-bold text-3xl my-2">
+            Update Your Family Info
+          </div>
+        )}
+        {isEditingInfo && (
+          <Input
+            autoFocus
+            label="Family Name (e.g. The Clarksons)"
+            onChange={updateTypedFamilyName}
+            required
+            value={typedFamilyName}
+          />
+        )}
+        {!isEditingInfo && (
+          <div className="text-white font-light text-lg">
+            {family_members.map(printFamilyMember(family_members))}
+          </div>
+        )}
+        {isEditingInfo && (
+          <div className="flex flex-col text-white text-base font-bold my-2">
+            <div>Family Members (e.g. Jane Isabella)</div>
+            <ul className="pl-4 font-light">
+              {familyMembers.map(({ given_name }) => (
+                <li key={given_name}>{given_name}</li>
+              ))}
+              <li className="flex items-center">
+                <FontAwesomeIcon className="cursor-pointer mr-2 -mt-1" icon={faPlus} onClick={updateFamilyMembers} />
+                <Input
+                  onChange={updateTypedFamilyMember}
+                  value={typedFamilyMember}
+                />
+              </li>
+            </ul>
+          </div>
+        )}
+        {!isEditingInfo && <div className="text-white font-light text-lg">{short_bio}</div>}
+        {isEditingInfo && (
+          <TextArea
+            label="Short Bio (e.g. We got married in...)"
+            onChange={updateTypedShortBio}
+            value={typedShortBio}
+          />
+        )}
+        {!isEditingInfo && (
+          <FontAwesomeIcon className="text-white mt-8 animate-bounce" icon={faArrowDown} />
+        )}
+        {isEditingInfo && <SubmitButton> Save Changes</SubmitButton>}
+      </form>
+    </div>
   );
 }
